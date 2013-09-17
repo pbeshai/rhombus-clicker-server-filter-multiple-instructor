@@ -5,12 +5,15 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import ca.ubc.clicker.driver.exception.ClickerException;
 import ca.ubc.clicker.server.ClickerServer;
 import ca.ubc.clicker.server.gson.GsonFactory;
 import ca.ubc.clicker.server.messages.ChoiceMessage;
 import ca.ubc.clicker.server.messages.CommandResponseMessage;
 import ca.ubc.clicker.server.messages.ResponseMessage;
-import ca.ubc.clickers.driver.exception.ClickerException;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -18,6 +21,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 public class MultipleInstructorFilter implements Filter {
+	private static Logger log = LogManager.getLogger();
 	private static final String CHOICES = "{\"type\":\"choices\"";
 	private static final String STATUS = "\"command\":\"status\"";
 	private static final String ENABLE_CHOICES = "{\"command\":\"enable choices\"}";
@@ -35,9 +39,26 @@ public class MultipleInstructorFilter implements Filter {
     	instructorIds = new LinkedList<String>();
     	// TODO: configure instructor IDs
     	instructorIds.add("Peter");
-    	instructorIds.add("Beshai");
+    	instructorIds.add("371BA68A");
     	
+    	StringBuffer instructors = new StringBuffer();
+    	int numInstructors = instructorIds.size();
+    	for (int i = 0; i < numInstructors; i++) {
+    		instructors.append(instructorIds.get(i));
+    		if ((i + 1) != numInstructors) {
+    			instructors.append(", ");
+    		}
+    	}
+    	if (numInstructors > 0) {
+    		log.info("Initialized with extra instructors {}.", instructors.toString());
+    	} else {
+    		log.info("Initialized with no extra instructors.");
+    	}
     	acceptingChoices = false;
+    }
+    
+    public String toString() {
+    	return "Multiple Instructors Filter";
     }
     
     @Override
@@ -127,6 +148,8 @@ public class MultipleInstructorFilter implements Filter {
 		if (ENABLE_CHOICES.equals(message.trim())) {
 			acceptingChoices = true;
 			message = null; // set message to null to prevent further filtering. 
+
+			log.info("[filter] {}", COMMAND_ENABLE_CHOICES);
 			
 			CommandResponseMessage response = new CommandResponseMessage();
 			response.command = COMMAND_ENABLE_CHOICES;
@@ -135,6 +158,8 @@ public class MultipleInstructorFilter implements Filter {
 		} else if(DISABLE_CHOICES.equals(message.trim())) {
 			acceptingChoices = false;
 			message = null;
+			
+			log.info("[filter] {}", COMMAND_DISABLE_CHOICES);
 			
 			CommandResponseMessage response = new CommandResponseMessage();
 			response.command = COMMAND_DISABLE_CHOICES;
