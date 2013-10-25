@@ -1,9 +1,11 @@
 package ca.ubc.clicker.server.filters;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Properties;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -29,6 +31,8 @@ public class MultipleInstructorFilter implements Filter {
 	public static final String COMMAND_ENABLE_CHOICES = "enable choices";
 	public static final String COMMAND_DISABLE_CHOICES = "disable choices";	
 	
+	private static final String CONFIG_PROPERTIES_FILE = "config.properties";
+	
 	private JsonParser parser;
     private List<String> instructorIds;
     private boolean acceptingChoices;
@@ -37,10 +41,30 @@ public class MultipleInstructorFilter implements Filter {
     public MultipleInstructorFilter() {
     	parser = new JsonParser();
     	instructorIds = new LinkedList<String>();
-    	// TODO: configure instructor IDs
-    	instructorIds.add("Peter");
-    	instructorIds.add("371BA68A");
-    	
+    	acceptingChoices = false;
+    }
+    
+    private void loadConfiguration() {
+    	// read from config.properties file -- comma separated value for instructorId
+		Properties config = new Properties();
+		String[] instructorIdsArray = new String[0];
+		try {
+			config.load(new FileInputStream(CONFIG_PROPERTIES_FILE));
+			instructorIdsArray = config.getProperty("instructorId", "").split(",");
+		} catch (IOException e) {
+			log.error("Could not find config.properties");
+		}
+		
+		for (String instructorId: instructorIdsArray) {
+			instructorIds.add(instructorId);
+		}
+    }
+    
+    public String toString() {
+    	return "Multiple Instructors Filter";
+    }
+    
+    public String instructorsString() {
     	StringBuffer instructors = new StringBuffer();
     	int numInstructors = instructorIds.size();
     	for (int i = 0; i < numInstructors; i++) {
@@ -49,25 +73,32 @@ public class MultipleInstructorFilter implements Filter {
     			instructors.append(", ");
     		}
     	}
-    	if (numInstructors > 0) {
-    		log.info("Initialized with extra instructors {}.", instructors.toString());
-    	} else {
-    		log.info("Initialized with no extra instructors.");
-    	}
-    	acceptingChoices = false;
-    }
-    
-    public String toString() {
-    	return "Multiple Instructors Filter";
+    	
+    	return instructors.toString();
     }
     
     @Override
-    public void initialize(ClickerServer server) {
+    public boolean initialize(ClickerServer server) {
     	this.server = server;
-    	instructorIds.add(server.getInstructorId());
+    	
+    	// read the config file to get the instructor IDs
+    	loadConfiguration();
+    	
+    	if (!instructorIds.contains(server.getInstructorId())) {
+    		instructorIds.add(server.getInstructorId());
+    	}
+    	if (instructorIds.size() < 2) {
+    		log.info("Not enabling since there are less than two configured instructors: " + instructorsString());
+    		return false;
+    	} 
+    	
+    	
+    	log.info("Enabled with " + instructorIds.size() + " instructors: " + instructorsString());
+    	
     	try {
     		// turn on the hardware for accepting votes
 			server.startAcceptingVotes();
+			return true;
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
@@ -75,6 +106,8 @@ public class MultipleInstructorFilter implements Filter {
 		} catch (ClickerException e) {
 			e.printStackTrace();
 		}
+    	
+    	return false;
     }
     
     private Gson gson() {
